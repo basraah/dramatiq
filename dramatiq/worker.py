@@ -9,6 +9,7 @@ from .common import compute_backoff, current_millis, iter_queue, join_all, q_nam
 from .errors import ActorNotFound, ConnectionError
 from .logging import get_logger
 from .middleware import Middleware, SkipMessage
+from .rate_limits.rate_limiter import RateLimitExceeded
 
 
 class Worker:
@@ -386,6 +387,10 @@ class _WorkerThread(Thread):
         except SkipMessage as e:
             self.logger.warning("Message %s was skipped.", message)
             self.broker.emit_after("skip_message", message)
+
+        except RateLimitExceeded as e:
+            self.logger.info("Rate limit exceeded for message %s", message)
+            self.broker.emit_after("process_message", message, exception=e)
 
         except BaseException as e:
             self.logger.warning("Failed to process message %s with unhandled exception.", message, exc_info=True)
